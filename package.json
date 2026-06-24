@@ -1,0 +1,16 @@
+{
+  "name": "memclip",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Clipboard history that remembers what you copied, where you copied it from, and where you pasted it.",
+  "scripts": {
+    "test": "node --test test/background.test.js test/integration.test.js test/manifest.test.js",
+    "test:browser": "node test/browser.mjs",
+    "build": "node scripts/build.mjs",
+    "screenshots": "node test/store-screenshots.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0",
+    "playwright": "^1.44.0"
+  }
+}

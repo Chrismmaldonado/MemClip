@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MemClip — Clipboard history that remembers</title>
+  <meta name="description" content="Private clipboard history that remembers what you copied, where it came from, and where you pasted it. No account, no servers — everything stays on your device.">
+  <style>
+    :root{
+      --bg:#06100a; --bg2:#0a1a10; --text:#d6ffe4; --muted:#8fd6a8;
+      --accent:#33ff77; --border:rgba(51,255,119,.25); --border2:rgba(51,255,119,.45);
+    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+      background:radial-gradient(1200px 600px at 50% -10%, rgba(51,255,119,.10), transparent 60%), var(--bg);
+      color:var(--text); line-height:1.5; -webkit-font-smoothing:antialiased;
+    }
+    a{color:var(--accent);text-decoration:none}
+    .wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+    header{display:flex;align-items:center;justify-content:space-between;padding:24px 0}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
+    .brand .dot{width:12px;height:12px;border-radius:3px;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+    nav a{margin-left:22px;color:var(--muted);font-size:14px}
+    .hero{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;padding:56px 0 72px}
+    .badge{display:inline-block;margin-bottom:20px;padding:6px 13px;border:1px solid var(--border2);
+      border-radius:999px;color:var(--accent);font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600}
+    h1{font-size:52px;line-height:1.05;letter-spacing:-.5px;color:#eafff1;text-shadow:0 0 24px rgba(51,255,119,.2)}
+    .hero p.sub{margin-top:18px;font-size:20px;color:var(--muted);max-width:520px}
+    .cta{margin-top:30px;display:flex;flex-wrap:wrap;gap:14px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:8px;font-weight:600;font-size:15px;
+      border:1px solid var(--border2);color:var(--accent);background:transparent;transition:.15s}
+    .btn:hover{background:rgba(51,255,119,.12);box-shadow:0 0 18px rgba(51,255,119,.25)}
+    .btn.primary{background:var(--accent);color:#04140a;border-color:var(--accent);box-shadow:0 0 24px rgba(51,255,119,.35)}
+    .btn.primary:hover{filter:brightness(1.08)}
+    .shot{border:1px solid var(--border);border-radius:16px;overflow:hidden;background:#000;
+      box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 40px rgba(51,255,119,.12)}
+    .shot img{display:block;width:100%;height:auto}
+    .features{padding:24px 0 72px}
+    .features h2{font-size:32px;text-align:center;margin-bottom:8px;color:#eafff1}
+    .features .lead{text-align:center;color:var(--muted);margin-bottom:40px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+    .card{border:1px solid var(--border);border-radius:12px;padding:22px;background:rgba(10,26,16,.5)}
+    .card h3{font-size:17px;margin-bottom:8px;color:#eafff1}
+    .card p{color:var(--muted);font-size:14px}
+    .privacy{border:1px solid var(--border2);border-radius:16px;padding:36px;text-align:center;margin:0 0 72px;
+      background:radial-gradient(600px 300px at 50% 0%, rgba(51,255,119,.08), transparent 70%)}
+    .privacy h2{font-size:28px;color:#eafff1;margin-bottom:12px}
+    .privacy p{color:var(--muted);max-width:680px;margin:0 auto 6px}
+    footer{border-top:1px solid var(--border);padding:28px 0;color:var(--muted);font-size:13px;
+      display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+    @media(max-width:820px){.hero{grid-template-columns:1fr;gap:32px}.grid{grid-template-columns:1fr}h1{font-size:40px}nav{display:none}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand"><span class="dot"></span> MemClip</div>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#privacy">Privacy</a>
+        <a href="privacy.html">Privacy Policy</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div>
+        <span class="badge">Clipboard history</span>
+        <h1>Never lose<br>a copy again.</h1>
+        <p class="sub">MemClip remembers everything you copy — text, links, emails, and code — with the page it came from and everywhere you pasted it. Private by design: no account, no servers, all local.</p>
+        <div class="cta">
+          <!-- Replace # with your store URLs once published -->
+          <a class="btn primary" href="#">Add to Chrome</a>
+          <a class="btn" href="#">Edge</a>
+          <a class="btn" href="#">Firefox</a>
+        </div>
+      </div>
+      <div class="shot"><img src="screenshot.png" alt="MemClip clipboard history popup"></div>
+    </section>
+
+    <section class="features" id="features">
+      <h2>Everything your clipboard forgot</h2>
+      <p class="lead">A real history for the thing you use a hundred times a day.</p>
+      <div class="grid">
+        <div class="card"><h3>📋 Full history</h3><p>Automatically saves every copy on any site, deduped and timestamped.</p></div>
+        <div class="card"><h3>🔎 Fuzzy search & filters</h3><p>Find any clip by content, type, or date — instantly.</p></div>
+        <div class="card"><h3>🧭 Source &amp; paste tracking</h3><p>See where each clip came from and everywhere you pasted it.</p></div>
+        <div class="card"><h3>📌 Pin &amp; reorder</h3><p>Keep your go-to snippets on top and drag them into order.</p></div>
+        <div class="card"><h3>💾 Export &amp; import</h3><p>Back up or move your whole history as a single JSON file.</p></div>
+        <div class="card"><h3>⌨️ Shortcut</h3><p>Open instantly with <strong>Ctrl+Shift+M</strong>.</p></div>
+      </div>
+    </section>
+
+    <section class="privacy" id="privacy">
+      <h2>Private by default 🔒</h2>
+      <p>No account. No servers. No analytics. No network requests. Your clips never leave your device.</p>
+      <p>MemClip skips credit-card numbers, SSNs, API keys, private keys, and password fields automatically — and you can block any site you like.</p>
+      <p style="margin-top:14px"><a href="privacy.html">Read the full privacy policy →</a></p>
+    </section>
+
+    <footer>
+      <span>© <span id="yr"></span> MemClip</span>
+      <span><a href="privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="#">Support</a></span>
+    </footer>
+  </div>
+  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+</body>
+</html>

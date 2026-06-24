@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MemClip — Privacy Policy</title>
+  <meta name="description" content="MemClip privacy policy: all clipboard data is stored locally on your device. No account, no servers, no tracking.">
+  <style>
+    :root{--bg:#06100a;--text:#d6ffe4;--muted:#8fd6a8;--accent:#33ff77;--border:rgba(51,255,119,.25)}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;line-height:1.6;
+      background:radial-gradient(1000px 500px at 50% -10%, rgba(51,255,119,.08), transparent 60%), var(--bg);color:var(--text)}
+    .wrap{max-width:760px;margin:0 auto;padding:48px 24px 80px}
+    a{color:var(--accent)}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;margin-bottom:8px}
+    .brand .dot{width:12px;height:12px;border-radius:3px;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+    h1{font-size:34px;color:#eafff1;margin:18px 0 4px}
+    .updated{color:var(--muted);font-size:14px;margin-bottom:28px}
+    h2{font-size:21px;color:#eafff1;margin:32px 0 10px;border-bottom:1px solid var(--border);padding-bottom:6px}
+    p{margin:10px 0;color:var(--text)}
+    ul{margin:10px 0 10px 22px;color:var(--text)}
+    li{margin:6px 0}
+    strong{color:#eafff1}
+    .muted{color:var(--muted)}
+    .back{display:inline-block;margin-bottom:24px;color:var(--muted);font-size:14px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="back" href="index.html">← Back to MemClip</a>
+    <div class="brand"><span class="dot"></span> MemClip</div>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: 2026-06-23</p>
+
+    <p>MemClip is a browser extension that keeps a local history of text you copy and paste, including where you copied it from and where you pasted it.</p>
+
+    <h2>What MemClip stores</h2>
+    <p>MemClip stores the following <strong>only on your own device</strong>, using the browser's local extension storage (<code>chrome.storage.local</code>):</p>
+    <ul>
+      <li>The text content of clips you copy or paste.</li>
+      <li>Metadata for each clip: source page URL, page title, hostname, scroll position at copy time, timestamps, copy/paste counts, and the list of pages you pasted a clip into.</li>
+      <li>Aggregate stats (e.g. top source sites and paste destinations).</li>
+      <li>Your settings (retention period, privacy toggles, blocked-site list).</li>
+    </ul>
+
+    <h2>What MemClip does NOT do</h2>
+    <ul>
+      <li><strong>No data ever leaves your device.</strong> MemClip has no servers, no analytics, no telemetry, and makes no network requests. Nothing is uploaded or shared.</li>
+      <li><strong>No account, no tracking, no advertising.</strong></li>
+      <li>MemClip does not use <code>chrome.storage.sync</code>, so your clips are not synced to your browser account.</li>
+    </ul>
+
+    <h2>Privacy &amp; security protections</h2>
+    <p>MemClip is designed to avoid capturing sensitive information:</p>
+    <ul>
+      <li><strong>Sensitive-data skip (on by default):</strong> content that looks like a credit-card number (Luhn-validated), a US Social Security Number, a private key block, or a known API/secret token (AWS, GitHub, OpenAI, Slack, Google) is <strong>not stored</strong>.</li>
+      <li><strong>Password fields skipped (on by default):</strong> copies and pastes made inside an <code>&lt;input type="password"&gt;</code> are ignored.</li>
+      <li><strong>Incognito excluded (default):</strong> MemClip does not capture in incognito/private windows unless you explicitly opt in.</li>
+      <li><strong>Per-site blocklist:</strong> you can list hostnames that MemClip should never capture on (matches subdomains too).</li>
+    </ul>
+    <p class="muted">These can be configured in <strong>Settings → Privacy &amp; Security</strong>.</p>
+
+    <h2>Your controls</h2>
+    <ul>
+      <li><strong>Retention:</strong> automatically delete clips older than 30/60/90 days, or keep them forever.</li>
+      <li><strong>Export / Import:</strong> download your full history as a JSON file and restore it any time.</li>
+      <li><strong>Clear All History:</strong> removes all clips except pinned ones.</li>
+      <li><strong>Erase Everything:</strong> permanently deletes all clips (including pinned), stats, and settings.</li>
+      <li>Delete any individual clip from its detail view.</li>
+    </ul>
+
+    <h2>Permissions and why they're needed</h2>
+    <ul>
+      <li><code>storage</code> — to save your clip history locally on your device.</li>
+      <li><code>tabs</code> — to read the title/URL of the page for clip context and to open a clip's source page when you ask.</li>
+      <li><code>clipboardRead</code> — to capture text from "copy" buttons and programmatic copies that don't expose a text selection.</li>
+      <li><code>host_permissions: &lt;all_urls&gt;</code> — the content script must run on the pages you use in order to detect copy/paste there. It is used only for capture; no page content other than what you copy/paste is collected.</li>
+    </ul>
+
+    <h2>Contact</h2>
+    <p>For questions or issues, contact <a href="mailto:getmemclip@gmail.com">getmemclip@gmail.com</a>.</p>
+  </div>
+</body>
+</html>

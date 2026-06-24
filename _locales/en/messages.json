@@ -1,0 +1,68 @@
+{
+  "extName": {
+    "message": "MemClip",
+    "description": "Extension name shown in the browser."
+  },
+  "extDescription": {
+    "message": "Clipboard history that remembers what you copied, where you copied it from, and where you pasted it.",
+    "description": "Extension description shown in the store and extensions page."
+  },
+  "commandToggle": {
+    "message": "Toggle MemClip popup",
+    "description": "Keyboard command description."
+  },
+
+  "tabAll": { "message": "All" },
+  "tabBySite": { "message": "By Site" },
+  "tabPinned": { "message": "Pinned" },
+
+  "searchPlaceholder": { "message": "Search clips or sources..." },
+
+  "filterAll": { "message": "All" },
+  "filterText": { "message": "Text" },
+  "filterLink": { "message": "Link" },
+  "filterEmail": { "message": "Email" },
+  "filterCode": { "message": "Code" },
+
+  "dateAnyTime": { "message": "Any time" },
+  "dateToday": { "message": "Today" },
+  "date7Days": { "message": "7 days" },
+  "date30Days": { "message": "30 days" },
+
+  "selectPin": { "message": "Pin" },
+  "selectDelete": { "message": "Delete" },
+  "selectCancel": { "message": "Cancel" },
+
+  "titleSettings": { "message": "Settings" },
+  "titleStats": { "message": "Stats" },
+  "titleClipDetails": { "message": "Clip Details" },
+
+  "settingStorageUsed": { "message": "Storage used" },
+  "settingTotalClips": { "message": "Total clips" },
+  "settingShortcut": { "message": "Shortcut" },
+  "settingRetention": { "message": "Retention" },
+  "privacySecurity": { "message": "Privacy & Security" },
+  "ignoreSensitive": { "message": "Ignore sensitive data" },
+  "ignoreSensitiveHint": { "message": "Skip card numbers, SSNs, API keys, private keys" },
+  "skipPasswords": { "message": "Skip password fields" },
+  "skipPasswordsHint": { "message": "Never capture from password inputs" },
+  "captureIncognito": { "message": "Capture in incognito" },
+  "captureIncognitoHint": { "message": "Off by default for privacy" },
+  "blockedSites": { "message": "Blocked sites" },
+  "blockedSitesHint": { "message": "One hostname per line — never capture here" },
+  "backupTitle": { "message": "Backup" },
+  "exportData": { "message": "Export to file" },
+  "exportNote": { "message": "Download all clips & settings as a JSON file" },
+  "importData": { "message": "Import from file" },
+  "importNote": { "message": "Merge a backup into your current history" },
+
+  "clearAllHistory": { "message": "Clear All History" },
+  "clearAllNote": { "message": "Pinned clips will be kept" },
+  "eraseEverything": { "message": "Erase Everything" },
+  "eraseEverythingNote": { "message": "Deletes all clips (including pinned), stats & settings" },
+
+  "footerNav": { "message": "nav" },
+  "footerCopy": { "message": "copy" },
+
+  "toastCopied": { "message": "Copied" }
+}
