@@ -35,7 +35,7 @@ MemClip keeps a searchable history of everything you copy — text, links, email
 - 📌 **Pin & reorder** — keep your go-to snippets at the top; drag to arrange.
 - 🎨 **Syntax-highlighted code** and type-aware actions (open links, compose emails).
 - 💾 **Export / import** — back up or move your whole history as a JSON file.
-- ⌨️ **Keyboard shortcut** — `Ctrl+Shift+M` to open instantly.
+- ⌨️ **Keyboard shortcut** — `Ctrl + .` to open instantly (fully customizable).
 
 **Private by design**
 - 🔒 **100% local.** No account, no servers, no analytics, no network requests — your data never leaves your device.
@@ -44,7 +44,7 @@ MemClip keeps a searchable history of everything you copy — text, links, email
 - 🚫 **Per-site blocklist** for sites MemClip should never touch.
 - 🗑️ Full control: per-clip delete, clear history (keep pins), or erase everything.
 
-Open MemClip from the toolbar or with `Ctrl+Shift+M`.
+Open MemClip from the toolbar or with `Ctrl + .` (you can change the shortcut in your browser's extension settings).
 
 Questions or feedback: getmemclip@gmail.com
 

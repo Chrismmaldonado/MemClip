@@ -54,7 +54,7 @@
   "commands": {
     "toggle-memclip": {
       "suggested_key": {
-        "default": "Ctrl+Shift+M"
+        "default": "Ctrl+Period"
       },
       "description": "__MSG_commandToggle__"
     }

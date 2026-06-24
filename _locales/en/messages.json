@@ -40,6 +40,7 @@
   "settingStorageUsed": { "message": "Storage used" },
   "settingTotalClips": { "message": "Total clips" },
   "settingShortcut": { "message": "Shortcut" },
+  "settingShortcutHint": { "message": "Customizable in your browser's extension shortcuts" },
   "settingRetention": { "message": "Retention" },
   "privacySecurity": { "message": "Privacy & Security" },
   "ignoreSensitive": { "message": "Ignore sensitive data" },

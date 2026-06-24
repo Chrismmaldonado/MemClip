@@ -1277,7 +1277,28 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // --- SETTINGS ---
+  // Show the *actual* bound shortcut (it's user-customizable), falling back to
+  // the suggested default if the command is unbound or the API is unavailable.
+  function updateShortcutDisplay() {
+    var el = document.getElementById('shortcut-keys');
+    if (!el) return;
+    try {
+      if (chrome.commands && chrome.commands.getAll) {
+        chrome.commands.getAll(function(cmds) {
+          if (chrome.runtime.lastError || !cmds) return;
+          for (var i = 0; i < cmds.length; i++) {
+            if (cmds[i].name === 'toggle-memclip') {
+              el.textContent = cmds[i].shortcut ? cmds[i].shortcut : 'Not set';
+              return;
+            }
+          }
+        });
+      }
+    } catch (e) {}
+  }
+
   function loadSettingsData() {
+    updateShortcutDisplay();
     document.getElementById('total-clips').textContent = clips.length;
     chrome.storage.local.getBytesInUse(null, function(bytes) {
       if (chrome.runtime.lastError) {
