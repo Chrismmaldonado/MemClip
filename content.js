@@ -1,9 +1,11 @@
 // MemClip Content Script
-// Writes captured copies/pastes DIRECTLY to chrome.storage.local. This is the
-// most reliable path: it doesn't depend on the background service worker being
-// awake. The popup live-updates via chrome.storage.onChanged, so direct writes
-// show up immediately.
-// DEBUG BUILD: explicit console logging on every stage.
+// Detects copies/pastes, applies the privacy gate (denylist, password fields,
+// sensitive data, incognito), then hands the capture to the background service
+// worker via a message. The background is the SINGLE writer to
+// chrome.storage.local: funneling every mutation through its serialized queue
+// is what prevents concurrent copies in multiple tabs from clobbering each
+// other's read-modify-write cycles. The popup live-updates via
+// chrome.storage.onChanged once the background commits.
 
 (function() {
   if (window.__memclip_loaded) return;
@@ -13,16 +15,9 @@
   // logging so a released build is silent (errors still surface).
   var DEBUG = false;
 
-  var STORAGE_KEY = 'memclip_history';
-  var STATS_KEY = 'memclip_stats';
-  var MAX_CLIPS = 1000;
-  // Per-clip cap so one huge copy can't blow the storage quota.
+  // Per-clip cap so one huge copy isn't shipped over the message channel. The
+  // background enforces the authoritative byte cap before storage.
   var MAX_CLIP_CHARS = 200000;
-  // On a quota failure, shed oldest unpinned clips and retry up to N times.
-  var QUOTA_RETRY_LIMIT = 6;
-  // Cap how many domain/destination keys we keep in stats (prevents unbounded
-  // growth of the stats maps over the lifetime of the extension).
-  var MAX_STAT_ENTRIES = 250;
   var copyHandled = false;
   var pasteHandled = false;
   var lastCopiedText = '';
@@ -226,22 +221,6 @@
     return text ? text.trim() : '';
   }
 
-  function makeId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
-  }
-
-  function detectType(text) {
-    if (!text) return 'text';
-    var t = text.trim();
-    if (/^https?:\/\/[^\s]+$/.test(t)) return 'url';
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) return 'email';
-    if (/[{}[\]();].*[{}[\]();]/.test(text)) return 'code';
-    if (/^(const|let|var|function|import|export|class|def|return|if |for |while )/m.test(text)) return 'code';
-    if (/^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|FROM|WHERE)\s/im.test(text)) return 'code';
-    if (/^(npm|yarn|docker|git|curl|wget|sudo|cd |mkdir|pip )/m.test(text)) return 'code';
-    return 'text';
-  }
-
   function showIndicator(text) {
     var existing = document.getElementById('memclip-indicator');
     if (existing) existing.remove();
@@ -261,86 +240,6 @@
       div.style.opacity = '0';
       setTimeout(function() { div.remove(); }, 200);
     }, 1500);
-  }
-
-  // Keep history within MAX_CLIPS, never dropping pinned clips.
-  function enforceClipLimit(history) {
-    if (history.length <= MAX_CLIPS) return history;
-    var pinned = [];
-    var unpinned = [];
-    for (var j = 0; j < history.length; j++) {
-      if (history[j].pinned) pinned.push(history[j]);
-      else unpinned.push(history[j]);
-    }
-    var room = Math.max(0, MAX_CLIPS - pinned.length);
-    unpinned = unpinned.slice(0, room);
-    return pinned.concat(unpinned);
-  }
-
-  // Trim a {key: count} map down to the highest-count MAX_STAT_ENTRIES keys.
-  function pruneStatsMap(map) {
-    if (!map) return {};
-    var keys = Object.keys(map);
-    if (keys.length <= MAX_STAT_ENTRIES) return map;
-    keys.sort(function(a, b) { return map[b] - map[a]; });
-    var out = {};
-    for (var i = 0; i < MAX_STAT_ENTRIES; i++) out[keys[i]] = map[keys[i]];
-    return out;
-  }
-
-  // Drop the oldest ~10% of unpinned clips (history is newest-first, so the
-  // oldest unpinned sit near the end). Returns a new array; pinned untouched.
-  function shedOldestUnpinned(history) {
-    var unpinnedIdx = [];
-    for (var i = history.length - 1; i >= 0; i--) {
-      if (!history[i].pinned) unpinnedIdx.push(i); // oldest-first
-    }
-    if (!unpinnedIdx.length) return history; // everything is pinned
-    var dropCount = Math.max(1, Math.floor(unpinnedIdx.length * 0.1));
-    var dropSet = {};
-    for (var k = 0; k < dropCount && k < unpinnedIdx.length; k++) dropSet[unpinnedIdx[k]] = true;
-    var out = [];
-    for (var m = 0; m < history.length; m++) {
-      if (!dropSet[m]) out.push(history[m]);
-    }
-    return out;
-  }
-
-  // Single quota-safe write path for both copy and paste. Enforces limits,
-  // prunes stats, and on QUOTA_BYTES failure sheds oldest unpinned clips and
-  // retries (up to QUOTA_RETRY_LIMIT).
-  function commitState(history, stats, label, onSaved) {
-    history = enforceClipLimit(history);
-    if (stats) {
-      stats.topDomains = pruneStatsMap(stats.topDomains);
-      stats.topPasteDestinations = pruneStatsMap(stats.topPasteDestinations);
-    }
-
-    function attempt(retriesLeft) {
-      var saveObj = {};
-      saveObj[STORAGE_KEY] = history;
-      saveObj[STATS_KEY] = stats;
-      chrome.storage.local.set(saveObj, function() {
-        if (chrome.runtime.lastError) {
-          var msg = chrome.runtime.lastError.message || String(chrome.runtime.lastError);
-          if (retriesLeft > 0 && /quota|exceed/i.test(msg)) {
-            var before = history.length;
-            history = shedOldestUnpinned(history);
-            if (history.length < before) {
-              debugLog('content', 'Quota hit — shed oldest unpinned, retrying', history.length);
-              attempt(retriesLeft - 1);
-              return;
-            }
-          }
-          debugLog('error', label + ' write error', msg);
-          showIndicator('MemClip: storage full');
-          return;
-        }
-        if (onSaved) onSaved(history);
-      });
-    }
-
-    attempt(QUOTA_RETRY_LIMIT);
   }
 
   document.addEventListener('copy', function(e) {
@@ -407,65 +306,39 @@
     debugLog('content', 'Copy detected', text.substring(0, 80));
 
     if (!storageAvailable()) {
-      debugLog('content', 'storage unavailable (context invalidated?) — refresh the page');
+      // The extension was reloaded/updated after this page loaded, so this
+      // content script is orphaned and can't reach storage. Tell the user
+      // instead of failing silently (showIndicator uses only the page DOM).
+      debugLog('content', 'extension context invalidated — refresh the page');
+      showIndicator('MemClip: refresh this page to capture');
       return;
     }
 
-    var clipData = {
-      id: makeId(),
-      text: text,
-      source: window.location.href,
-      hostname: window.location.hostname,
-      pageTitle: document.title,
-      scrollY: Math.round(window.scrollY || 0),
-      timestamp: Date.now(),
-      type: detectType(text),
-      pinned: false,
-      copyCount: 1,
-      pasteCount: 0,
-      pastedTo: []
-    };
-
-    chrome.storage.local.get([STORAGE_KEY, STATS_KEY], function(result) {
-      if (chrome.runtime.lastError) {
-        debugLog('error', 'Storage read error', chrome.runtime.lastError.message || String(chrome.runtime.lastError));
-        return;
-      }
-
-      var history = result[STORAGE_KEY] || [];
-      var stats = result[STATS_KEY] || { totalCopies: 0, totalPastes: 0, topDomains: {}, topPasteDestinations: {} };
-
-      var dupeIndex = -1;
-      for (var i = 0; i < history.length; i++) {
-        if (history[i].text === text) { dupeIndex = i; break; }
-      }
-
-      if (dupeIndex !== -1) {
-        var existing = history.splice(dupeIndex, 1)[0];
-        existing.timestamp = Date.now();
-        existing.copyCount = (existing.copyCount || 1) + 1;
-        existing.source = clipData.source;
-        existing.hostname = clipData.hostname;
-        existing.pageTitle = clipData.pageTitle;
-        existing.scrollY = clipData.scrollY;
-        history.unshift(existing);
-        debugLog('content', 'Duplicate moved to top', text.substring(0, 40));
-      } else {
-        history.unshift(clipData);
-        debugLog('content', 'New clip added', text.substring(0, 40));
-      }
-
-      stats.totalCopies = (stats.totalCopies || 0) + 1;
-      if (clipData.hostname) {
-        stats.topDomains = stats.topDomains || {};
-        stats.topDomains[clipData.hostname] = (stats.topDomains[clipData.hostname] || 0) + 1;
-      }
-
-      commitState(history, stats, 'copy', function(saved) {
-        debugLog('content', 'Clip saved', saved.length);
-        showIndicator('Saved to MemClip');
+    try {
+      chrome.runtime.sendMessage({
+        type: 'ADD_CLIP',
+        payload: {
+          text: text,
+          source: window.location.href,
+          hostname: window.location.hostname,
+          pageTitle: document.title,
+          scrollY: Math.round(window.scrollY || 0)
+        }
+      }, function(res) {
+        if (chrome.runtime.lastError) {
+          debugLog('error', 'ADD_CLIP failed', chrome.runtime.lastError.message);
+          return;
+        }
+        if (res && res.success) {
+          debugLog('content', 'Clip saved');
+          showIndicator('Saved to MemClip');
+        } else if (res && res.skipped) {
+          debugLog('content', 'Copy skipped by background (' + res.skipped + ')');
+        }
       });
-    });
+    } catch (e) {
+      debugLog('error', 'ADD_CLIP threw', e && e.message);
+    }
   }
 
   document.addEventListener('paste', function(e) {
@@ -494,7 +367,7 @@
     debugLog('content', 'Paste detected', text.substring(0, 80));
 
     if (!storageAvailable()) {
-      debugLog('content', 'storage unavailable (context invalidated?) — refresh the page');
+      debugLog('content', 'extension context invalidated — refresh the page');
       return;
     }
 
@@ -508,64 +381,25 @@
       return;
     }
 
-    chrome.storage.local.get([STORAGE_KEY, STATS_KEY], function(result) {
-      if (chrome.runtime.lastError) {
-        debugLog('error', 'paste storage read error', chrome.runtime.lastError.message || String(chrome.runtime.lastError));
-        return;
-      }
-
-      var history = result[STORAGE_KEY] || [];
-      var stats = result[STATS_KEY] || { totalCopies: 0, totalPastes: 0, topDomains: {}, topPasteDestinations: {} };
-
-      var clip = null;
-      for (var i = 0; i < history.length; i++) {
-        if (history[i].text === text) { clip = history[i]; break; }
-      }
-
-      if (!clip) {
-        // Text pasted here was copied somewhere we couldn't capture (another
-        // app, a tab without the content script). Record it so the paste is
-        // tracked rather than silently dropped.
-        debugLog('content', 'paste: no matching clip, creating new entry', text.substring(0, 40));
-        clip = {
-          id: makeId(),
+    try {
+      chrome.runtime.sendMessage({
+        type: 'RECORD_PASTE',
+        payload: {
           text: text,
-          source: destUrl,
-          hostname: destHostname,
-          pageTitle: destTitle,
-          scrollY: 0,
-          timestamp: Date.now(),
-          type: detectType(text),
-          pinned: false,
-          copyCount: 0,
-          pasteCount: 0,
-          pastedTo: [],
-          externalOrigin: true
-        };
-        history.unshift(clip);
-      }
-
-      clip.pasteCount = (clip.pasteCount || 0) + 1;
-      clip.lastPasted = Date.now();
-      if (!clip.pastedTo) clip.pastedTo = [];
-      clip.pastedTo.unshift({
-        url: destUrl,
-        hostname: destHostname,
-        title: destTitle,
-        timestamp: Date.now()
-      });
-      if (clip.pastedTo.length > 10) clip.pastedTo = clip.pastedTo.slice(0, 10);
-
-      stats.totalPastes = (stats.totalPastes || 0) + 1;
-      stats.topPasteDestinations = stats.topPasteDestinations || {};
-      if (destHostname) {
-        stats.topPasteDestinations[destHostname] = (stats.topPasteDestinations[destHostname] || 0) + 1;
-      }
-
-      commitState(history, stats, 'paste', function() {
+          destUrl: destUrl,
+          destHostname: destHostname,
+          destTitle: destTitle
+        }
+      }, function(res) {
+        if (chrome.runtime.lastError) {
+          debugLog('error', 'RECORD_PASTE failed', chrome.runtime.lastError.message);
+          return;
+        }
         debugLog('content', 'Paste recorded to', destHostname);
       });
-    });
+    } catch (e) {
+      debugLog('error', 'RECORD_PASTE threw', e && e.message);
+    }
   });
 
   try {

@@ -18,6 +18,9 @@ var MAX_CLIP_BYTES = 256 * 1024;
 // How many times to shed oldest unpinned clips and retry when a write fails
 // because the storage quota is exceeded.
 var QUOTA_RETRY_LIMIT = 6;
+// Cap how many domain/destination keys the stats maps keep, so they can't grow
+// without bound over the lifetime of the extension.
+var MAX_STAT_ENTRIES = 250;
 
 // In-memory debug ring buffer (service workers are ephemeral, so this resets
 // when the worker is torn down — that's fine, it's only a live debug view).
@@ -123,6 +126,17 @@ function dropOldestUnpinned(history, n) {
     }
   }
   return history;
+}
+
+// Trim a {key: count} map down to the highest-count MAX_STAT_ENTRIES keys.
+function pruneStatsMap(map) {
+  if (!map) return {};
+  var keys = Object.keys(map);
+  if (keys.length <= MAX_STAT_ENTRIES) return map;
+  keys.sort(function(a, b) { return map[b] - map[a]; });
+  var out = {};
+  for (var i = 0; i < MAX_STAT_ENTRIES; i++) out[keys[i]] = map[keys[i]];
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -250,6 +264,7 @@ function addClip(payload) {
       if (payload.hostname) {
         stats.topDomains[payload.hostname] = (stats.topDomains[payload.hostname] || 0) + 1;
       }
+      stats.topDomains = pruneStatsMap(stats.topDomains);
 
       return saveState(history, stats);
     });
@@ -306,6 +321,7 @@ function recordPaste(payload) {
         stats.topPasteDestinations[payload.destHostname] =
           (stats.topPasteDestinations[payload.destHostname] || 0) + 1;
       }
+      stats.topPasteDestinations = pruneStatsMap(stats.topPasteDestinations);
 
       return saveState(history, stats);
     });
@@ -802,15 +818,36 @@ chrome.commands.onCommand.addListener(function(command) {
 // Message router
 // ---------------------------------------------------------------------------
 
+// Authoritative incognito gate. The content script also checks incognito, but
+// its detection (chrome.extension.inIncognitoContext) can fail open. The sender
+// tab's `incognito` flag is set by the browser and cannot be spoofed, so this is
+// the reliable place to honor the "don't capture in incognito" default.
+function captureAllowedForSender(sender) {
+  return new Promise(function(resolve) {
+    var tab = sender && sender.tab;
+    if (!tab || tab.incognito !== true) { resolve(true); return; }
+    getAsync([SETTINGS_KEY]).then(function(res) {
+      var s = res[SETTINGS_KEY];
+      resolve(!!(s && s.captureIncognito === true));
+    });
+  });
+}
+
 chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   if (!message || !message.type) return false;
 
   switch (message.type) {
     case 'ADD_CLIP':
-      addClip(message.payload || {}).then(function(r) { safeSend(sendResponse, r); });
+      captureAllowedForSender(sender).then(function(ok) {
+        if (!ok) { safeSend(sendResponse, { success: false, skipped: 'incognito' }); return; }
+        addClip(message.payload || {}).then(function(r) { safeSend(sendResponse, r); });
+      });
       return true;
     case 'RECORD_PASTE':
-      recordPaste(message.payload || {}).then(function(r) { safeSend(sendResponse, r); });
+      captureAllowedForSender(sender).then(function(ok) {
+        if (!ok) { safeSend(sendResponse, { success: false, skipped: 'incognito' }); return; }
+        recordPaste(message.payload || {}).then(function(r) { safeSend(sendResponse, r); });
+      });
       return true;
     case 'GET_CLIPS':
       getClips(message.query, message.limit, function(r) { safeSend(sendResponse, r); });

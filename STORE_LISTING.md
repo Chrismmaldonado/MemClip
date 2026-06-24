@@ -39,7 +39,7 @@ MemClip keeps a searchable history of everything you copy — text, links, email
 
 **Private by design**
 - 🔒 **100% local.** No account, no servers, no analytics, no network requests — your data never leaves your device.
-- 🛡️ **Skips sensitive data** by default: credit-card numbers, SSNs, API keys, and private keys are never stored.
+- 🛡️ **Skips common secrets** by default: credit-card numbers, SSNs, private keys, and well-known API-token formats are skipped before anything is stored.
 - 🙈 **Skips password fields** and **incognito** windows (opt-in if you want it).
 - 🚫 **Per-site blocklist** for sites MemClip should never touch.
 - 🗑️ Full control: per-clip delete, clear history (keep pins), or erase everything.

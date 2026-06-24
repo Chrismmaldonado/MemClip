@@ -1,7 +1,10 @@
 // End-to-end-ish integration test.
-// Runs the real content.js (capture) and the real popup.html + popup.js
-// (render) against ONE shared chrome.storage mock, then asserts a clip element
-// actually appears in the popup DOM. This mirrors what the user does in Opera.
+// Runs the real content.js (capture) + the real background.js (the single
+// storage writer) + the real popup.html/popup.js (render) against ONE shared
+// chrome mock, then asserts a clip element actually appears in the popup DOM.
+// This mirrors what the user does in the browser: content captures, messages
+// the background, the background commits through its serialized queue, and the
+// popup updates live via chrome.storage.onChanged.
 //
 // Run with:  node --test test/integration.test.js
 
@@ -12,22 +15,53 @@ const path = require('node:path');
 const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '..');
+const BG_PATH = require.resolve(path.join(ROOT, 'background.js'));
 
-// ---- one shared storage + onChanged dispatcher ----
-function makeSharedChrome() {
+// Load (or reload) the real background service worker against a given chrome
+// mock. background.js wires its message router + listeners at load time and its
+// functions read the *global* chrome at call time, so a fresh require bound to
+// `global.chrome` gives each test an isolated background + storage.
+function loadBackgroundFresh(chrome) {
+  global.chrome = chrome;
+  delete require.cache[BG_PATH];
+  require(BG_PATH);
+}
+
+function byteOf(obj) { return Buffer.byteLength(JSON.stringify(obj)); }
+
+// ---- one shared storage + onChanged dispatcher + message router bus ----
+function makeSharedChrome(options) {
+  options = options || {};
   const store = {};
   const changeListeners = [];
+  const msgListeners = [];
+  const quotaBytes = typeof options.quotaBytes === 'number' ? options.quotaBytes : Infinity;
 
   function clone(v) { return v === undefined ? undefined : JSON.parse(JSON.stringify(v)); }
+
+  function dispatchMessage(msg, sender, cb) {
+    let responded = false;
+    function sendResponse(resp) {
+      if (responded) return;
+      responded = true;
+      if (typeof cb === 'function') setTimeout(() => cb(resp), 0);
+    }
+    if (msgListeners.length) {
+      msgListeners.forEach((fn) => { try { fn(msg, sender, sendResponse); } catch (e) {} });
+    } else if (typeof cb === 'function') {
+      // No background mounted: benign reply so popup-only reads don't hang.
+      setTimeout(() => cb({ success: true, logs: [], clips: [] }), 0);
+    }
+  }
 
   const runtime = {
     lastError: null,
     id: 'test-extension-id',
-    onMessage: { addListener: function () {} },
-    sendMessage: function (msg, cb) {
-      // Popup may call GET_STATS etc.; return benign responses.
-      if (typeof cb === 'function') setTimeout(() => cb({ success: true, logs: [], clips: [] }), 0);
-    }
+    getURL: function (p) { return 'chrome-extension://test/' + p; },
+    onMessage: { addListener: function (fn) { msgListeners.push(fn); } },
+    onInstalled: { addListener: function () {} },
+    onStartup: { addListener: function () {} },
+    sendMessage: function (msg, cb) { dispatchMessage(msg, { id: 'test-extension-id' }, cb); }
   };
 
   const local = {
@@ -42,6 +76,13 @@ function makeSharedChrome() {
     },
     set: function (obj, cb) {
       setTimeout(() => {
+        const merged = Object.assign({}, store, obj);
+        if (byteOf(merged) > quotaBytes) {
+          runtime.lastError = { message: 'QUOTA_BYTES quota exceeded' };
+          if (cb) cb();
+          runtime.lastError = null;
+          return;
+        }
         runtime.lastError = null;
         const changes = {};
         Object.keys(obj).forEach((k) => {
@@ -49,14 +90,11 @@ function makeSharedChrome() {
           store[k] = clone(obj[k]);
         });
         if (cb) cb();
-        // notify listeners (mimics chrome.storage.onChanged across contexts)
-        changeListeners.forEach((fn) => {
-          try { fn(changes, 'local'); } catch (e) {}
-        });
+        changeListeners.forEach((fn) => { try { fn(changes, 'local'); } catch (e) {} });
       }, 1);
     },
     getBytesInUse: function (keys, cb) {
-      setTimeout(() => cb(Buffer.byteLength(JSON.stringify(store))), 1);
+      setTimeout(() => cb(byteOf(store)), 1);
     }
   };
 
@@ -65,10 +103,32 @@ function makeSharedChrome() {
     storage: {
       local: local,
       onChanged: { addListener: function (fn) { changeListeners.push(fn); } }
-    }
+    },
+    tabs: {
+      create: function (o, cb) { if (cb) cb({ id: 1 }); },
+      query: function (q, cb) { if (cb) cb([]); },
+      onUpdated: { addListener: function () {}, removeListener: function () {} },
+      sendMessage: function () {}
+    },
+    windows: {
+      create: function (o, cb) { if (cb) cb({ id: 1 }); },
+      update: function (id, o, cb) { if (cb) cb(); },
+      get: function (id, cb) { if (cb) cb({ id: id }); },
+      onRemoved: { addListener: function () {} }
+    },
+    action: { onClicked: { addListener: function () {} } },
+    commands: { onCommand: { addListener: function () {} } }
   };
 
-  return { chrome, store };
+  return {
+    chrome: chrome,
+    store: store,
+    // Fire a message into the router with an explicit sender (e.g. an incognito
+    // tab) and resolve with the router's response.
+    emitMessage: function (msg, sender) {
+      return new Promise((resolve) => dispatchMessage(msg, sender || { id: 'test-extension-id' }, resolve));
+    }
+  };
 }
 
 function wait(ms) { return new Promise((r) => setTimeout(r, ms)); }
@@ -188,6 +248,7 @@ test('popup renders a clip that already exists in storage', async () => {
     source: 'https://github.com/x', pageTitle: 'GH', timestamp: Date.now(),
     type: 'text', pinned: false, copyCount: 1, pasteCount: 0, pastedTo: []
   }];
+  loadBackgroundFresh(chrome);
 
   const dom = loadPopup(chrome);
   const list = dom.window.document.getElementById('clips-list');
@@ -196,8 +257,9 @@ test('popup renders a clip that already exists in storage', async () => {
   assert.ok(ok, 'clip should render under All. Got: ' + (list ? list.textContent : '(no list)'));
 });
 
-test('content.js copy is captured and shows live in an open popup', async () => {
+test('content.js copy routes through the background and shows live in an open popup', async () => {
   const shared = makeSharedChrome();
+  loadBackgroundFresh(shared.chrome);
   const dom = loadPopup(shared.chrome);
   const list = dom.window.document.getElementById('clips-list');
 
@@ -209,13 +271,14 @@ test('content.js copy is captured and shows live in an open popup', async () => 
 
   const ok = await until(() => list && /captured live text/.test(list.textContent), 4000);
   assert.ok(ok, 'copied clip should appear live via storage.onChanged. List: ' + (list ? list.textContent : '(none)'));
-  // storage actually has it
+  // background actually committed it
   assert.ok(shared.store.memclip_history && shared.store.memclip_history.length === 1);
   assert.equal(shared.store.memclip_history[0].text, 'captured live text');
 });
 
-test('content.js paste updates an existing clip and shows live (used 1x)', async () => {
+test('content.js paste routes through the background and shows live (used 1x)', async () => {
   const shared = makeSharedChrome();
+  loadBackgroundFresh(shared.chrome);
   const dom = loadPopup(shared.chrome);
   const list = dom.window.document.getElementById('clips-list');
 
@@ -246,129 +309,120 @@ test('content.js paste updates an existing clip and shows live (used 1x)', async
   assert.ok(ok, 'paste should bump pasteCount and show "used 1x" live. List: ' + (list ? list.textContent : '(none)'));
 });
 
-// Phase 1: content.js must survive a full storage quota by shedding the oldest
-// unpinned clips and retrying, while never dropping pinned clips.
-test('content.js sheds oldest unpinned clips on quota failure, preserves pinned', async () => {
+// The background (single writer) must survive a full storage quota by shedding
+// the oldest unpinned clips and retrying, while never dropping pinned clips —
+// exercised here through the real content -> message -> background path.
+test('a copy under quota pressure sheds oldest unpinned clips, preserves pinned', async () => {
   const big = (label) => label + ' ' + 'A'.repeat(1500);
-  const store = {};
-  const pinned = { id: 'pin', text: big('PINNED'), pinned: true, copyCount: 1, pasteCount: 0, pastedTo: [] };
+  const pinned = { id: 'pin', text: big('PINNED'), pinned: true, copyCount: 1, pasteCount: 0, pastedTo: [], timestamp: -1 };
   const unpinned = [];
   for (let i = 0; i < 8; i++) {
     unpinned.push({ id: 'u' + i, text: big('OLD' + i), pinned: false, copyCount: 1, pasteCount: 0, pastedTo: [], timestamp: i });
   }
-  // newest-first: u7..u0 then pinned (oldest)
-  store.memclip_history = unpinned.slice().reverse().concat([pinned]);
-  store.memclip_stats = { totalCopies: 8, totalPastes: 0, topDomains: {}, topPasteDestinations: {} };
 
-  // Quota that only fits pinned + 3 big clips -> forces shedding when a 9th arrives.
-  const QUOTA = Buffer.byteLength(JSON.stringify({
+  // Quota that only fits pinned + ~3 big clips -> forces shedding when a 9th arrives.
+  const stats = { totalCopies: 8, totalPastes: 0, topDomains: {}, topPasteDestinations: {} };
+  const QUOTA = byteOf({
     memclip_history: [pinned, unpinned[0], unpinned[1], unpinned[2]],
-    memclip_stats: store.memclip_stats
-  })) + 1200;
+    memclip_stats: stats
+  }) + 1200;
 
-  function clone(v) { return v === undefined ? undefined : JSON.parse(JSON.stringify(v)); }
-  const chrome = {
-    runtime: { lastError: null, id: 'q', onMessage: { addListener() {} }, sendMessage() {} },
-    storage: {
-      onChanged: { addListener() {} },
-      local: {
-        get(keys, cb) {
-          setTimeout(() => {
-            chrome.runtime.lastError = null;
-            const out = {};
-            (Array.isArray(keys) ? keys : [keys]).forEach((k) => { if (store[k] !== undefined) out[k] = clone(store[k]); });
-            cb(out);
-          }, 1);
-        },
-        set(obj, cb) {
-          setTimeout(() => {
-            const prospective = Object.assign({}, store);
-            Object.keys(obj).forEach((k) => { prospective[k] = obj[k]; });
-            if (Buffer.byteLength(JSON.stringify(prospective)) > QUOTA) {
-              chrome.runtime.lastError = { message: 'QUOTA_BYTES quota exceeded' };
-              cb();
-            } else {
-              chrome.runtime.lastError = null;
-              Object.keys(obj).forEach((k) => { store[k] = clone(obj[k]); });
-              cb();
-            }
-          }, 1);
-        }
-      }
-    }
-  };
+  const shared = makeSharedChrome({ quotaBytes: QUOTA });
+  // newest-first: u7..u0 then pinned (oldest)
+  shared.store.memclip_history = unpinned.slice().reverse().concat([pinned]);
+  shared.store.memclip_stats = stats;
+  loadBackgroundFresh(shared.chrome);
 
-  const handlers = {};
-  const lightDoc = {
-    title: 'T', addEventListener: (t, f) => { handlers[t] = f; }, getElementById: () => null,
-    getSelection: () => ({ toString: () => 'BRAND NEW CLIP' }), get activeElement() { return null; },
-    createElement: () => ({ style: {}, remove() {}, set textContent(v) {} }), body: { appendChild() {} }
-  };
-  const lightWin = {
-    __memclip_loaded: false, location: { href: 'https://q.com/a', hostname: 'q.com' },
-    scrollY: 0, getSelection: () => ({ toString: () => 'BRAND NEW CLIP' }), addEventListener: () => {}, scrollTo: () => {}
-  };
-  const vm = require('node:vm');
-  vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'content.js'), 'utf8'), {
-    window: lightWin, document: lightDoc, chrome,
-    navigator: { clipboard: { readText: () => Promise.resolve('') } },
-    console: console, setTimeout, Date, Math, URL
-  });
+  const handlers = mountContent(shared.chrome, { selection: 'BRAND NEW CLIP', href: 'https://q.com/a' });
+  await wait(20);
   handlers['copy']({ clipboardData: { getData: () => '' } });
 
-  // Wait for the new clip to be written (i.e. shedding+retry succeeded).
   const saved = await until(
-    () => store.memclip_history.some((c) => c.text === 'BRAND NEW CLIP'),
+    () => shared.store.memclip_history.some((c) => c.text === 'BRAND NEW CLIP'),
     4000
   );
   assert.ok(saved, 'new clip should be saved after shedding old unpinned clips');
-  assert.ok(store.memclip_history.some((c) => c.id === 'pin'), 'pinned clip must never be shed');
-  assert.ok(store.memclip_history.length < 9, 'history should have shed some old unpinned clips');
+  assert.ok(shared.store.memclip_history.some((c) => c.id === 'pin'), 'pinned clip must never be shed');
+  assert.ok(shared.store.memclip_history.length < 9, 'history should have shed some old unpinned clips');
   assert.ok(
-    Buffer.byteLength(JSON.stringify({ memclip_history: store.memclip_history, memclip_stats: store.memclip_stats })) <= QUOTA,
+    byteOf({ memclip_history: shared.store.memclip_history, memclip_stats: shared.store.memclip_stats }) <= QUOTA,
     'final stored state should fit within quota'
   );
 });
 
-// Phase 2: privacy/security gating in content.js.
+// Privacy/security gating in content.js (the gate runs before any message is
+// sent, so blocked content never reaches the background).
 test('content.js skips sensitive data (credit-card number) by default', async () => {
-  const { chrome, store } = makeSharedChrome();
-  const h = mountContent(chrome, { selection: '4111 1111 1111 1111', href: 'https://allowed.com/x' });
+  const shared = makeSharedChrome();
+  loadBackgroundFresh(shared.chrome);
+  const h = mountContent(shared.chrome, { selection: '4111 1111 1111 1111', href: 'https://allowed.com/x' });
   await wait(30);
   h.copy({ clipboardData: { getData: () => '' } });
-  await wait(60);
-  assert.ok(!store.memclip_history || store.memclip_history.length === 0, 'credit card should not be stored');
+  await wait(80);
+  assert.ok(!shared.store.memclip_history || shared.store.memclip_history.length === 0, 'credit card should not be stored');
 });
 
 test('content.js skips copies made inside password fields', async () => {
-  const { chrome, store } = makeSharedChrome();
-  const h = mountContent(chrome, {
+  const shared = makeSharedChrome();
+  loadBackgroundFresh(shared.chrome);
+  const h = mountContent(shared.chrome, {
     selection: 'hunter2secretpw',
     activeElement: { tagName: 'INPUT', type: 'password' },
     href: 'https://allowed.com/x'
   });
   await wait(30);
   h.copy({ clipboardData: { getData: () => '' } });
-  await wait(60);
-  assert.ok(!store.memclip_history || store.memclip_history.length === 0, 'password-field copy should not be stored');
+  await wait(80);
+  assert.ok(!shared.store.memclip_history || shared.store.memclip_history.length === 0, 'password-field copy should not be stored');
 });
 
 test('content.js respects the per-site denylist (incl. subdomains)', async () => {
-  const { chrome, store } = makeSharedChrome();
-  store.memclip_settings = { ignoreSensitive: true, skipPasswordFields: true, captureIncognito: false, denylist: ['blocked.com'] };
-  const h = mountContent(chrome, { selection: 'totally normal text', href: 'https://sub.blocked.com/x' });
+  const shared = makeSharedChrome();
+  shared.store.memclip_settings = { ignoreSensitive: true, skipPasswordFields: true, captureIncognito: false, denylist: ['blocked.com'] };
+  loadBackgroundFresh(shared.chrome);
+  const h = mountContent(shared.chrome, { selection: 'totally normal text', href: 'https://sub.blocked.com/x' });
   await wait(45);
   h.copy({ clipboardData: { getData: () => '' } });
-  await wait(60);
-  assert.ok(!store.memclip_history || store.memclip_history.length === 0, 'denylisted site must not capture');
+  await wait(80);
+  assert.ok(!shared.store.memclip_history || shared.store.memclip_history.length === 0, 'denylisted site must not capture');
 });
 
 test('content.js still captures normal text on allowed sites', async () => {
-  const { chrome, store } = makeSharedChrome();
-  const h = mountContent(chrome, { selection: 'just some normal copied text', href: 'https://allowed.com/x' });
+  const shared = makeSharedChrome();
+  loadBackgroundFresh(shared.chrome);
+  const h = mountContent(shared.chrome, { selection: 'just some normal copied text', href: 'https://allowed.com/x' });
   await wait(30);
   h.copy({ clipboardData: { getData: () => '' } });
-  await wait(60);
-  assert.ok(store.memclip_history && store.memclip_history.length === 1, 'normal text should be captured');
-  assert.equal(store.memclip_history[0].text, 'just some normal copied text');
+  const ok = await until(() => shared.store.memclip_history && shared.store.memclip_history.length === 1, 3000);
+  assert.ok(ok, 'normal text should be captured');
+  assert.equal(shared.store.memclip_history[0].text, 'just some normal copied text');
+});
+
+// The background is the authoritative incognito gate: even if the content
+// script's own detection fails open, an ADD_CLIP from an incognito tab must be
+// dropped unless the user explicitly opted in.
+test('background drops captures from an incognito tab by default', async () => {
+  const shared = makeSharedChrome();
+  loadBackgroundFresh(shared.chrome);
+  const res = await shared.emitMessage(
+    { type: 'ADD_CLIP', payload: { text: 'secret incognito copy', source: 'https://x.com/a', hostname: 'x.com', pageTitle: 'X' } },
+    { id: 'test-extension-id', tab: { incognito: true } }
+  );
+  assert.equal(res.success, false);
+  assert.equal(res.skipped, 'incognito');
+  await wait(40);
+  assert.ok(!shared.store.memclip_history || shared.store.memclip_history.length === 0, 'incognito copy must not be stored');
+});
+
+test('background captures from an incognito tab when the user opts in', async () => {
+  const shared = makeSharedChrome();
+  shared.store.memclip_settings = { captureIncognito: true };
+  loadBackgroundFresh(shared.chrome);
+  const res = await shared.emitMessage(
+    { type: 'ADD_CLIP', payload: { text: 'allowed incognito copy', source: 'https://x.com/a', hostname: 'x.com', pageTitle: 'X' } },
+    { id: 'test-extension-id', tab: { incognito: true } }
+  );
+  assert.equal(res.success, true);
+  await until(() => shared.store.memclip_history && shared.store.memclip_history.length === 1, 2000);
+  assert.equal(shared.store.memclip_history[0].text, 'allowed incognito copy');
 });

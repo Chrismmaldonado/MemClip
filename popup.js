@@ -1474,10 +1474,16 @@ document.addEventListener('DOMContentLoaded', function() {
     return new Date(ts).toLocaleDateString();
   }
 
+  // Escapes &, <, >, and quotes. Quotes matter because this output is also
+  // interpolated into HTML attributes (e.g. title="..."), and the data is
+  // untrusted page content (clip text, source URLs, page titles).
   function escapeHtml(text) {
-    var div = document.createElement('div');
-    div.textContent = text || '';
-    return div.innerHTML;
+    return String(text == null ? '' : text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // --- INIT ---

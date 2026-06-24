@@ -44,7 +44,7 @@
   "settingRetention": { "message": "Retention" },
   "privacySecurity": { "message": "Privacy & Security" },
   "ignoreSensitive": { "message": "Ignore sensitive data" },
-  "ignoreSensitiveHint": { "message": "Skip card numbers, SSNs, API keys, private keys" },
+  "ignoreSensitiveHint": { "message": "Skip card numbers, SSNs, private keys & known token formats" },
   "skipPasswords": { "message": "Skip password fields" },
   "skipPasswordsHint": { "message": "Never capture from password inputs" },
   "captureIncognito": { "message": "Capture in incognito" },
