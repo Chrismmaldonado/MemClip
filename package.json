@@ -7,6 +7,7 @@
     "test": "node --test test/background.test.js test/integration.test.js test/manifest.test.js",
     "test:browser": "node test/browser.mjs",
     "build": "node scripts/build.mjs",
+    "build:opera": "node scripts/build-opera.mjs",
     "screenshots": "node test/store-screenshots.mjs"
   },
   "devDependencies": {
