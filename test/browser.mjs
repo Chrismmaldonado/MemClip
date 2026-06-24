@@ -288,6 +288,26 @@ try {
   );
   check('detail view shows type-aware "Open link" action for url clip', hasOpenLink);
 
+  // 11a) Citation feature: the detail view offers source-attributed cite
+  // actions, and clicking one copies a citation that embeds the source.
+  const citeButtons = await popup.evaluate(() =>
+    [...document.querySelectorAll('#detail-content [data-cite]')].map((b) => b.getAttribute('data-cite'))
+  );
+  check('detail shows cite actions (markdown/plain/link)',
+    citeButtons.includes('markdown') && citeButtons.includes('plain') && citeButtons.includes('link'));
+
+  const citation = await popup.evaluate(async () => {
+    let captured = null;
+    const orig = navigator.clipboard.writeText.bind(navigator.clipboard);
+    navigator.clipboard.writeText = (s) => { captured = s; try { return orig(s); } catch (e) { return Promise.resolve(); } };
+    document.querySelector('#detail-content [data-cite="markdown"]').click();
+    await new Promise((r) => setTimeout(r, 150));
+    return captured;
+  });
+  log('markdown citation:', JSON.stringify(citation));
+  check('markdown citation embeds source link [A](https://a.com)',
+    typeof citation === 'string' && citation.includes('[A](https://a.com)') && citation.includes('> https://example.com/page'));
+
   // Back to main.
   await popup.evaluate(() => document.getElementById('detail-back').click());
   await popup.waitForTimeout(300);

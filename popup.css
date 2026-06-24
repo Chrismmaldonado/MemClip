@@ -928,6 +928,12 @@ hr {
   margin-bottom: 16px;
 }
 
+.cite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .action-btn {
   display: flex;
   align-items: center;

@@ -1103,6 +1103,22 @@ document.addEventListener('DOMContentLoaded', function() {
       contentHtml = '<div class="detail-text">' + escapeHtml(clip.text) + '</div>';
     }
 
+    // Source-attributed citation actions. Only shown when we actually know the
+    // source, since that context is the whole point of citing a clip.
+    var citeHtml = '';
+    if (clip.source) {
+      var quoteIcon = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21c3-1 5-3 5-7V5H4v7h4"></path><path d="M14 21c3-1 5-3 5-7V5h-4v7h4"></path></svg>';
+      citeHtml =
+        '<div class="detail-section">' +
+          '<div class="detail-label">Cite this clip</div>' +
+          '<div class="cite-actions">' +
+            '<button class="action-btn" data-cite="markdown">' + quoteIcon + 'Markdown</button>' +
+            '<button class="action-btn" data-cite="plain">' + quoteIcon + 'Plain text</button>' +
+            '<button class="action-btn" data-cite="link">' + quoteIcon + 'Source link</button>' +
+          '</div>' +
+        '</div>';
+    }
+
     content.innerHTML =
       (actionsHtml ? '<div class="detail-actions">' + actionsHtml + '</div>' : '') +
 
@@ -1110,6 +1126,8 @@ document.addEventListener('DOMContentLoaded', function() {
         '<div class="detail-label">Content</div>' +
         contentHtml +
       '</div>' +
+
+      citeHtml +
 
       '<div class="detail-section">' +
         '<div class="detail-label">Copied From</div>' +
@@ -1140,6 +1158,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     wireTypeActions(clip);
+
+    content.querySelectorAll('[data-cite]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        copyText(buildCitation(clip, btn.getAttribute('data-cite')), 'Citation copied');
+      });
+    });
   }
 
   // Build type-aware action buttons (open link, compose email, copy code, etc.).
@@ -1373,20 +1397,46 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // --- COPY ---
-  function copyClip(clip) {
-    navigator.clipboard.writeText(clip.text).then(function() {
-      showToast('Copied');
+  // Copy an arbitrary string to the clipboard with a toast. Falls back to a
+  // hidden textarea + execCommand when the async clipboard API is unavailable.
+  function copyText(str, msg) {
+    msg = msg || 'Copied';
+    navigator.clipboard.writeText(str).then(function() {
+      showToast(msg);
     }).catch(function() {
       var textarea = document.createElement('textarea');
-      textarea.value = clip.text;
+      textarea.value = str;
       textarea.style.position = 'fixed';
       textarea.style.opacity = '0';
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand('copy');
       document.body.removeChild(textarea);
-      showToast('Copied');
+      showToast(msg);
     });
+  }
+
+  function copyClip(clip) {
+    copyText(clip.text, 'Copied');
+  }
+
+  // Build a source-attributed citation for a clip in the requested format.
+  // This is MemClip's differentiator: every clip already knows where it was
+  // copied from (source URL + page title), so we can hand it back ready to cite.
+  function buildCitation(clip, format) {
+    var text = (clip.text || '').trim();
+    var url = clip.source || '';
+    var title = clip.pageTitle || clip.hostname || url || 'source';
+    var date = clip.timestamp ? new Date(clip.timestamp).toISOString().slice(0, 10) : '';
+    switch (format) {
+      case 'markdown':
+        return '> ' + text.replace(/\n/g, '\n> ') + '\n\n— [' + title + '](' + url + ')';
+      case 'link':
+        return '[' + title + '](' + url + ')';
+      case 'plain':
+      default:
+        return '"' + text + '"\n— ' + title + (url ? ' (' + url + ')' : '') + (date ? ', ' + date : '');
+    }
   }
 
   // --- SELECTION ---
