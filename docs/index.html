@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MemClip — Clipboard history that remembers</title>
-  <meta name="description" content="Private clipboard history that remembers what you copied, where it came from, and where you pasted it. No account, no servers — everything stays on your device.">
+  <title>MemClip: Clipboard history that remembers</title>
+  <meta name="description" content="Private clipboard history that remembers what you copied, where it came from, and where you pasted it. No account, no servers, everything stays on your device.">
   <style>
     :root{
       --bg:#06100a; --bg2:#0a1a10; --text:#d6ffe4; --muted:#8fd6a8;
@@ -21,7 +21,7 @@
     .wrap{max-width:1040px;margin:0 auto;padding:0 24px}
     header{display:flex;align-items:center;justify-content:space-between;padding:24px 0}
     .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
-    .brand .dot{width:12px;height:12px;border-radius:3px;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+    .brand .logo{width:28px;height:28px;border-radius:6px;box-shadow:0 0 14px rgba(51,255,119,.45)}
     nav a{margin-left:22px;color:var(--muted);font-size:14px}
     .hero{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;padding:56px 0 72px}
     .badge{display:inline-block;margin-bottom:20px;padding:6px 13px;border:1px solid var(--border2);
@@ -34,9 +34,24 @@
     .btn:hover{background:rgba(51,255,119,.12);box-shadow:0 0 18px rgba(51,255,119,.25)}
     .btn.primary{background:var(--accent);color:#04140a;border-color:var(--accent);box-shadow:0 0 24px rgba(51,255,119,.35)}
     .btn.primary:hover{filter:brightness(1.08)}
-    .shot{border:1px solid var(--border);border-radius:16px;overflow:hidden;background:#000;
+    .carousel{position:relative}
+    .carousel-viewport{position:relative;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:#000;
       box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 40px rgba(51,255,119,.12)}
-    .shot img{display:block;width:100%;height:auto}
+    .carousel-track{display:flex;transition:transform .5s cubic-bezier(.22,.61,.36,1)}
+    .slide{flex:0 0 100%;margin:0;position:relative}
+    .slide img{display:block;width:100%;height:auto}
+    .slide figcaption{position:absolute;left:0;right:0;bottom:0;padding:16px;font-size:13px;color:var(--text);
+      background:linear-gradient(transparent,rgba(0,0,0,.88))}
+    .car-arrow{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:24px;line-height:1;
+      color:var(--accent);background:rgba(4,20,10,.7);border:1px solid var(--border2);transition:.15s}
+    .car-arrow:hover{background:rgba(51,255,119,.18);box-shadow:0 0 16px rgba(51,255,119,.3)}
+    .car-arrow.prev{left:12px}
+    .car-arrow.next{right:12px}
+    .car-dots{display:flex;justify-content:center;gap:8px;margin-top:16px}
+    .car-dots button{width:8px;height:8px;border-radius:50%;border:0;cursor:pointer;padding:0;
+      background:var(--border2);transition:.2s}
+    .car-dots button.active{background:var(--accent);box-shadow:0 0 10px var(--accent);width:22px;border-radius:5px}
     .features{padding:24px 0 72px}
     .features h2{font-size:32px;text-align:center;margin-bottom:8px;color:#eafff1}
     .features .lead{text-align:center;color:var(--muted);margin-bottom:40px}
@@ -56,11 +71,11 @@
 <body>
   <div class="wrap">
     <header>
-      <div class="brand"><span class="dot"></span> MemClip</div>
+      <div class="brand"><img class="logo" src="logo.png" alt="MemClip logo"> MemClip</div>
       <nav>
         <a href="#features">Features</a>
-        <a href="#privacy">Privacy</a>
         <a href="privacy.html">Privacy Policy</a>
+        <a href="support.html">Support</a>
       </nav>
     </header>
 
@@ -68,42 +83,93 @@
       <div>
         <span class="badge">Clipboard history</span>
         <h1>Never lose<br>a copy again.</h1>
-        <p class="sub">MemClip remembers everything you copy — text, links, emails, and code — with the page it came from and everywhere you pasted it. Private by design: no account, no servers, all local.</p>
+        <p class="sub">MemClip remembers everything you copy, including text, links, emails, and code, with the page it came from and everywhere you pasted it. Private by design: no account, no servers, all local.</p>
         <div class="cta">
           <!-- Replace # with your store URLs once published -->
           <a class="btn primary" href="#">Add to Chrome</a>
           <a class="btn" href="#">Edge</a>
           <a class="btn" href="#">Firefox</a>
+          <a class="btn" href="#">Opera</a>
         </div>
       </div>
-      <div class="shot"><img src="screenshot.png" alt="MemClip clipboard history popup"></div>
+      <div class="carousel" id="walk">
+        <div class="carousel-viewport">
+          <div class="carousel-track">
+            <figure class="slide">
+              <img src="shot-1.png" alt="MemClip clipboard history with search and filters">
+              <figcaption>Searchable history with type and date filters.</figcaption>
+            </figure>
+            <figure class="slide">
+              <img src="shot-2.png" alt="MemClip clip detail showing source and paste tracking">
+              <figcaption>Source context, highlighted code, and paste tracking.</figcaption>
+            </figure>
+            <figure class="slide">
+              <img src="shot-3.png" alt="MemClip privacy settings and backup">
+              <figcaption>Privacy controls, per site blocklist, and one click backup.</figcaption>
+            </figure>
+          </div>
+          <button class="car-arrow prev" type="button" aria-label="Previous feature">&#8249;</button>
+          <button class="car-arrow next" type="button" aria-label="Next feature">&#8250;</button>
+        </div>
+        <div class="car-dots"></div>
+      </div>
     </section>
 
     <section class="features" id="features">
       <h2>Everything your clipboard forgot</h2>
       <p class="lead">A real history for the thing you use a hundred times a day.</p>
       <div class="grid">
-        <div class="card"><h3>📋 Full history</h3><p>Automatically saves every copy on any site, deduped and timestamped.</p></div>
-        <div class="card"><h3>🔎 Fuzzy search & filters</h3><p>Find any clip by content, type, or date — instantly.</p></div>
-        <div class="card"><h3>🧭 Source &amp; paste tracking</h3><p>See where each clip came from and everywhere you pasted it.</p></div>
-        <div class="card"><h3>📌 Pin &amp; reorder</h3><p>Keep your go-to snippets on top and drag them into order.</p></div>
-        <div class="card"><h3>💾 Export &amp; import</h3><p>Back up or move your whole history as a single JSON file.</p></div>
-        <div class="card"><h3>⌨️ Shortcut</h3><p>Open instantly with <strong>Ctrl&nbsp;+&nbsp;.</strong> — fully customizable.</p></div>
+        <div class="card"><h3>Full history</h3><p>Automatically saves every copy on any site, deduped and timestamped.</p></div>
+        <div class="card"><h3>Fuzzy search &amp; filters</h3><p>Find any clip by content, type, or date. Instantly.</p></div>
+        <div class="card"><h3>Source &amp; paste tracking</h3><p>See where each clip came from and everywhere you pasted it.</p></div>
+        <div class="card"><h3>Pin &amp; reorder</h3><p>Keep your favorite snippets on top and drag them into order.</p></div>
+        <div class="card"><h3>Export &amp; import</h3><p>Back up or move your whole history as a single JSON file.</p></div>
+        <div class="card"><h3>Shortcut</h3><p>Open instantly with <strong>Ctrl&nbsp;+&nbsp;.</strong> and fully customizable.</p></div>
       </div>
     </section>
 
     <section class="privacy" id="privacy">
-      <h2>Private by default 🔒</h2>
+      <h2>Private by default</h2>
       <p>No account. No servers. No analytics. No network requests. Your clips never leave your device.</p>
-      <p>MemClip skips credit-card numbers, SSNs, API keys, private keys, and password fields automatically — and you can block any site you like.</p>
+      <p>MemClip skips credit card numbers, SSNs, API keys, private keys, and password fields automatically, and you can block any site you like.</p>
       <p style="margin-top:14px"><a href="privacy.html">Read the full privacy policy →</a></p>
     </section>
 
     <footer>
       <span>© <span id="yr"></span> MemClip</span>
-      <span><a href="privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="#">Support</a></span>
+      <span><a href="privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="support.html">Support</a></span>
     </footer>
   </div>
   <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+  <script>
+    (function(){
+      var track = document.querySelector('.carousel-track');
+      var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+      var dotsWrap = document.querySelector('.car-dots');
+      if(!track || !slides.length) return;
+      var index = 0, timer;
+      slides.forEach(function(_, n){
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('aria-label', 'Go to feature ' + (n + 1));
+        b.addEventListener('click', function(){ go(n); restart(); });
+        dotsWrap.appendChild(b);
+      });
+      var dots = Array.prototype.slice.call(dotsWrap.children);
+      function go(n){
+        index = (n + slides.length) % slides.length;
+        track.style.transform = 'translateX(-' + (index * 100) + '%)';
+        dots.forEach(function(d, k){ d.classList.toggle('active', k === index); });
+      }
+      function restart(){ clearInterval(timer); timer = setInterval(function(){ go(index + 1); }, 5000); }
+      document.querySelector('.car-arrow.next').addEventListener('click', function(){ go(index + 1); restart(); });
+      document.querySelector('.car-arrow.prev').addEventListener('click', function(){ go(index - 1); restart(); });
+      document.addEventListener('keydown', function(e){
+        if(e.key === 'ArrowRight'){ go(index + 1); restart(); }
+        if(e.key === 'ArrowLeft'){ go(index - 1); restart(); }
+      });
+      go(0); restart();
+    })();
+  </script>
 </body>
 </html>
