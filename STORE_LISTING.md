@@ -5,8 +5,8 @@ your real values before submitting.
 
 **Placeholders to fill in once:**
 - `{{SUPPORT_EMAIL}}` — ✅ set to `getmemclip@gmail.com`
-- `{{LANDING_URL}}` — ✅ set to `https://chrismmaldonado.github.io/memclip/`
-- `{{PRIVACY_URL}}` — ✅ set to `https://chrismmaldonado.github.io/memclip/privacy.html`
+- `{{LANDING_URL}}` — ✅ set to `https://chrismmaldonado.github.io/MemClip/`
+- `{{PRIVACY_URL}}` — ✅ set to `https://chrismmaldonado.github.io/MemClip/privacy.html`
 - `{{DEVELOPER_NAME}}` — ✅ set to `MemClip`
 
 ---
@@ -58,12 +58,12 @@ Questions or feedback: getmemclip@gmail.com
 MemClip maintains a local, searchable history of the user's clipboard copies and pastes, with the source and destination context for each item.
 
 ## Privacy
-- Privacy policy URL: https://chrismmaldonado.github.io/memclip/privacy.html
+- Privacy policy URL: https://chrismmaldonado.github.io/MemClip/privacy.html
 - Data collected: **None transmitted.** All clip data is stored locally via `chrome.storage.local` and never leaves the device.
 - Firefox data-collection declaration: **No data collected** (manifest declares `data_collection_permissions: { required: ["none"] }`).
 
 ## Support / homepage
-- Homepage: https://chrismmaldonado.github.io/memclip/
+- Homepage: https://chrismmaldonado.github.io/MemClip/
 - Support email: getmemclip@gmail.com
 - Developer: MemClip
 
