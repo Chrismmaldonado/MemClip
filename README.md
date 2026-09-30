@@ -13,13 +13,15 @@
 
 [Website](https://chrismmaldonado.github.io/MemClip/) · [Privacy Policy](https://chrismmaldonado.github.io/MemClip/privacy.html) · [Support](https://chrismmaldonado.github.io/MemClip/support.html)
 
+**Install:** [Chrome](https://chromewebstore.google.com/detail/memclip/pdnfhhclebhlmfbkjpaelnaabmjfmdjb) · [Firefox](https://addons.mozilla.org/en-US/firefox/addon/memclip/) · [Opera](https://chromewebstore.google.com/detail/memclip/pdnfhhclebhlmfbkjpaelnaabmjfmdjb) (Chrome Web Store, works in Opera)
+
 </div>
 
 ---
 
 ## What it does
 
-MemClip keeps a searchable history of everything you copy — text, links, emails, and code — and remembers the context around each item: the page you copied it from, when, and every place you later pasted it. Everything stays on your device.
+MemClip keeps a searchable history of everything you copy: text, links, emails, and code. It also remembers the context around each item: the page you copied it from, when, and every place you later pasted it. Everything stays on your device.
 
 <div align="center">
 <img src="store-assets/01-history.png" width="32%" alt="Clipboard history with search and filters">
@@ -49,13 +51,15 @@ See [PRIVACY.md](PRIVACY.md) for the full policy.
 
 ## Install
 
-Store listings are on the way. In the meantime you can run it unpacked:
+- **Chrome:** [MemClip on the Chrome Web Store](https://chromewebstore.google.com/detail/memclip/pdnfhhclebhlmfbkjpaelnaabmjfmdjb)
+- **Firefox:** [MemClip on Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/memclip/)
+- **Opera:** Install from the [Chrome Web Store](https://chromewebstore.google.com/detail/memclip/pdnfhhclebhlmfbkjpaelnaabmjfmdjb) (Opera supports Chrome extensions). Shortcut: `Ctrl + .` (assign under `opera://extensions/shortcuts` if needed).
+
+### Run unpacked (developers)
 
 1. Download or clone this repository.
 2. Open your browser's extensions page and enable **Developer mode**.
 3. Choose **Load unpacked** and select the project folder (the one containing `manifest.json`).
-
-Works in Chrome, Edge, Firefox, and Opera (Manifest V3).
 
 ## Development
 
