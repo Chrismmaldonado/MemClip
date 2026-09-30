@@ -1,83 +1,102 @@
-"""Remove near-black corner fill from MemClip icons so rounded edges are clean."""
+"""Convert MemClip neon-on-black icons to clean transparent neon."""
 from __future__ import annotations
 
-from collections import deque
+import math
 from pathlib import Path
 
-from PIL import Image, ImageFilter
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "icons" / "icon128.png"
+# Always rebuild from the known baked-on-black original when present.
+ORIGINAL = ROOT / "icons" / "icon128-original-black.png"
+SRC = ORIGINAL if ORIGINAL.exists() else ROOT / "icons" / "icon128.png"
+
+NEON = (51, 255, 119)
 
 
-def is_corner_bg(r: int, g: int, b: int, a: int) -> bool:
-    if a < 8:
-        return True
-    # Near-black rim that currently fills the square outside the rounded plate.
-    return r <= 35 and g <= 45 and b <= 35
-
-
-def clear_corners(src: Image.Image) -> Image.Image:
+def decontaminate(src: Image.Image) -> Image.Image:
     src = src.convert("RGBA")
     w, h = src.size
     px = src.load()
-    visited = [[False] * w for _ in range(h)]
-    mask = Image.new("L", (w, h), 255)
-    mp = mask.load()
-    q: deque[tuple[int, int]] = deque([(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)])
-    while q:
-        x, y = q.popleft()
-        if x < 0 or y < 0 or x >= w or y >= h or visited[y][x]:
-            continue
-        r, g, b, a = px[x, y]
-        if not is_corner_bg(r, g, b, a):
-            continue
-        visited[y][x] = True
-        mp[x, y] = 0
-        for nx, ny in (
-            (x + 1, y),
-            (x - 1, y),
-            (x, y + 1),
-            (x, y - 1),
-            (x + 1, y + 1),
-            (x - 1, y - 1),
-            (x + 1, y - 1),
-            (x - 1, y + 1),
-        ):
-            q.append((nx, ny))
-
-    mask = mask.filter(ImageFilter.GaussianBlur(0.6))
     out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     op = out.load()
-    mp = mask.load()
+
+    cx = (w - 1) / 2.0
+    cy = (h - 1) / 2.0
+    # Keep glow inside a soft circle so square-file corners are always empty.
+    radius = min(w, h) * 0.48
+    feather = min(w, h) * 0.06
+
     for y in range(h):
         for x in range(w):
             r, g, b, a = px[x, y]
-            m = mp[x, y]
-            if m == 0:
+            if a < 4:
                 continue
-            na = int(a * (m / 255.0))
-            if na < 2:
+
+            # Circular mask first (kills the boxed corners).
+            dist = math.hypot(x - cx, y - cy)
+            if dist >= radius + feather:
                 continue
-            op[x, y] = (r, g, b, na)
+            if dist <= radius:
+                circle = 1.0
+            else:
+                circle = 1.0 - (dist - radius) / feather
+
+            if g < 20 or g + 8 < r or g + 8 < b:
+                continue
+
+            strength = max(int(g * 1.2), r, b)
+            if strength < 28:
+                continue
+
+            inv = 255.0 / strength
+            nr = min(255, int(r * inv))
+            ng = min(255, int(g * inv))
+            nb = min(255, int(b * inv))
+            nr = min(255, int(nr * 0.2 + NEON[0] * 0.8))
+            ng = min(255, int(ng * 0.3 + NEON[1] * 0.7))
+            nb = min(255, int(nb * 0.2 + NEON[2] * 0.8))
+
+            na = min(255, int(strength * 1.08 * circle))
+            if na < 12:
+                continue
+            op[x, y] = (nr, ng, nb, na)
+
     return out
 
 
 def main() -> None:
-    cleaned = clear_corners(Image.open(SRC))
-    for pt in [(0, 0), (1, 1), (127, 0), (0, 127), (127, 127), (64, 64)]:
+    # Ensure we have a stable original to rebuild from.
+    if not ORIGINAL.exists():
+        # Caller should have checked out / copied the black original here.
+        pass
+
+    cleaned = decontaminate(Image.open(SRC))
+
+    for pt in [(0, 0), (2, 2), (10, 10), (64, 30), (90, 90), (127, 127)]:
         print("pixel", pt, cleaned.getpixel(pt))
 
     icons = ROOT / "icons"
-    cleaned.save(icons / "icon128.png")
-    cleaned.save(ROOT / "docs" / "logo.png")
+    cleaned.save(icons / "icon128.png", optimize=True)
+    cleaned.save(ROOT / "docs" / "logo.png", optimize=True)
+
     for size in (16, 32, 48, 64):
         resized = cleaned.resize((size, size), Image.Resampling.LANCZOS)
-        if size == 64:
-            resized.save(ROOT / "store-assets" / "icon64.png")
-        else:
-            resized.save(icons / f"icon{size}.png")
+        path = (
+            ROOT / "store-assets" / "icon64.png"
+            if size == 64
+            else icons / f"icon{size}.png"
+        )
+        resized.save(path, optimize=True)
         print("wrote", size)
+
+    for name, color in (
+        ("_preview-on-github-gray.png", (13, 17, 23, 255)),
+        ("_preview-on-light.png", (210, 210, 210, 255)),
+    ):
+        bg = Image.new("RGBA", (200, 200), color)
+        bg.paste(cleaned, (36, 36), cleaned)
+        bg.convert("RGB").save(icons / name)
     print("done")
 
 
